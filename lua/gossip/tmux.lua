@@ -1,7 +1,3 @@
---- Low-level tmux command wrappers.
--- @module gossip.tmux
--- @local
-
 local M = {}
 
 local function execute_tmux_sync(args)
@@ -41,7 +37,7 @@ function M.find_pane_by_command(command_pattern, session)
 end
 
 function M.capture_pane_id()
-  local output, err = execute_tmux_sync({"tmux", "display-message", "-p", "#{pane_id}"})
+  local output, err = execute_tmux_sync({ "tmux", "display-message", "-p", "#{pane_id}" })
   if err then
     return nil, err
   end
@@ -49,7 +45,7 @@ function M.capture_pane_id()
 end
 
 function M.get_pane_ids()
-  local output, err = execute_tmux_sync({"tmux", "list-panes", "-s", "-F", "#{pane_id}"})
+  local output, err = execute_tmux_sync({ "tmux", "list-panes", "-s", "-F", "#{pane_id}" })
   if err then
     return nil, err
   end
@@ -83,7 +79,7 @@ function M.find_new_pane_id(before_ids)
 end
 
 function M.send_text(pane_id, text)
-  local _, err = execute_tmux_sync({"tmux", "send-keys", "-t", pane_id, text})
+  local _, err = execute_tmux_sync({ "tmux", "send-keys", "-t", pane_id, text })
   if err then
     return false, err
   end
@@ -91,7 +87,15 @@ function M.send_text(pane_id, text)
 end
 
 function M.send_enter(pane_id)
-  local _, err = execute_tmux_sync({"tmux", "send-keys", "-t", pane_id, "Enter"})
+  local _, err = execute_tmux_sync({ "tmux", "send-keys", "-t", pane_id, "Enter" })
+  if err then
+    return false, err
+  end
+  return true, nil
+end
+
+function M.send_keys(pane_id, keys)
+  local _, err = execute_tmux_sync({ "tmux", "send-keys", "-t", pane_id, keys })
   if err then
     return false, err
   end
@@ -99,7 +103,7 @@ function M.send_enter(pane_id)
 end
 
 function M.clear_history(pane_id)
-  local _, err = execute_tmux_sync({"tmux", "clear-history", "-t", pane_id})
+  local _, err = execute_tmux_sync({ "tmux", "clear-history", "-t", pane_id })
   if err then
     return false, err
   end
@@ -107,7 +111,7 @@ function M.clear_history(pane_id)
 end
 
 function M.kill_pane(pane_id)
-  local _, err = execute_tmux_sync({"tmux", "kill-pane", "-t", pane_id})
+  local _, err = execute_tmux_sync({ "tmux", "kill-pane", "-t", pane_id })
   if err then
     return false, err
   end
@@ -118,76 +122,66 @@ function M.build_create_command(create)
   local cmd_parts = { "tmux" }
 
   if type(create) == "string" then
-    table.insert(cmd_parts, create)
-    table.insert(cmd_parts, "-d")
+    table.insert(cmd_parts, "split-window")
+    local parts = {}
+    for part in create:gmatch("%S+") do
+      table.insert(parts, part)
+    end
+    for _, part in ipairs(parts) do
+      table.insert(cmd_parts, part)
+    end
   elseif type(create) == "table" then
-    local key = next(create)
-    local opts = create[key]
+    local keys = {}
+    for k, _ in pairs(create) do
+      table.insert(keys, k)
+    end
 
+    local key = keys[1]
     if key == "split" then
-      table.insert(cmd_parts, "split")
-      if opts.dir then
-        table.insert(cmd_parts, "-" .. opts.dir)
-      else
-        table.insert(cmd_parts, "-h")
+      table.insert(cmd_parts, "split-window")
+      local s = create.split
+      if s.dir then
+        table.insert(cmd_parts, "-" .. s.dir)
       end
-      table.insert(cmd_parts, "-d")
-      if opts.size then
+      if s.size then
         table.insert(cmd_parts, "-l")
-        table.insert(cmd_parts, opts.size)
+        table.insert(cmd_parts, s.size)
       end
-      if opts.command then
-        table.insert(cmd_parts, opts.command)
+      if s.command then
+        table.insert(cmd_parts, s.command)
       end
     elseif key == "window" then
       table.insert(cmd_parts, "new-window")
-      if opts.name then
+      local w = create.window
+      if w.name then
         table.insert(cmd_parts, "-n")
-        table.insert(cmd_parts, opts.name)
+        table.insert(cmd_parts, w.name)
       end
-      if opts.command then
-        table.insert(cmd_parts, opts.command)
+      if w.command then
+        table.insert(cmd_parts, w.command)
       end
-    else
-      error("create must have key 'split' or 'window'")
     end
-  else
-    error("create must be a string or table")
   end
 
   return cmd_parts
 end
 
 function M.execute_create_command(create)
-  local full_cmd = M.build_create_command(create)
-  local output, err = execute_tmux_sync(full_cmd)
-  if err then
-    return nil, err
-  end
-  return output, nil
+  local cmd_parts = M.build_create_command(create)
+  return execute_tmux_sync(cmd_parts)
 end
 
-function M.execute_tmux_command(tmux_cmd, pane_id)
-  local cmd_parts = {}
-  local needs_target = false
-  for part in tmux_cmd:gmatch("%S+") do
-    table.insert(cmd_parts, part)
+function M.execute_tmux_command(cmd, pane_id)
+  local args = { "tmux" }
+  for part in cmd:gmatch("%S+") do
+    table.insert(args, part)
   end
-  
-  local last = cmd_parts[#cmd_parts]
-  if last == "-t" then
-    needs_target = true
-    table.insert(cmd_parts, pane_id)
-  elseif not vim.list_contains(cmd_parts, "-t") then
-    table.insert(cmd_parts, "-t")
-    table.insert(cmd_parts, pane_id)
+  if pane_id and not cmd:find("%-t") then
+    table.insert(args, "-t")
+    table.insert(args, pane_id)
   end
-  
-  local _, err = execute_tmux_sync(vim.list_extend({"tmux"}, cmd_parts))
-  if err then
-    return false, err
-  end
-  return true, nil
+  return execute_tmux_sync(args)
 end
 
 return M
+

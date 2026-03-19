@@ -1,11 +1,8 @@
---- Gossip contact creation and instance methods.
--- @module gossip.contact
--- @local
-
 local tmux = require("gossip.tmux")
 local state = require("gossip.state")
 
-local M = {}
+local Contact = {}
+Contact.__index = Contact
 
 local config_defaults = {
   breakup_on_exit = false,
@@ -61,8 +58,37 @@ local function validate_create(create)
   end
 end
 
+function Contact.validate_config(config)
+  if type(config) ~= "table" then
+    error("config must be a table, got " .. type(config))
+  end
+
+  if type(config.name) ~= "string" or #config.name == 0 then
+    error("config.name must be a non-empty string")
+  end
+
+  validate_create(config.create)
+end
+
+function Contact.new(config)
+  Contact.validate_config(config)
+
+  local self = setmetatable({}, Contact)
+  self.name = config.name
+  self.create = config.create
+  self.pane_id = nil
+  self.match_command = config.match_command
+  self.breakup_on_exit = config_defaults.breakup_on_exit
+
+  if config.breakup_on_exit ~= nil then
+    self.breakup_on_exit = config.breakup_on_exit
+  end
+
+  return self
+end
+
 local function is_pane_valid(pane_id)
-  local ok, _err = tmux.execute_tmux_command("list-panes -t", pane_id)
+  local ok, _err = tmux.execute_tmux_command("list-panes", pane_id)
   if not ok then
     return false
   end
@@ -97,7 +123,7 @@ local function find_or_create_pane(contact)
   return pane_id, true
 end
 
-local function ensure_pane_bound(contact)
+function Contact.ensure_pane_bound(contact)
   if contact.pane_id and not is_pane_valid(contact.pane_id) then
     contact.pane_id = nil
   end
@@ -111,7 +137,7 @@ local function ensure_pane_bound(contact)
   return pane_id, was_created
 end
 
-local function get_contact_table(contact)
+function Contact.get(contact)
   if type(contact) == "string" then
     local c = state.get_contact(contact)
     if not c then
@@ -125,114 +151,72 @@ local function get_contact_table(contact)
   end
 end
 
-local function send_texts(pane_id, texts)
-  local items = type(texts) == "table" and texts or { texts }
-  for _, item in ipairs(items) do
-    local ok, err = tmux.send_text(pane_id, item)
-    if not ok then
-      return false, err
-    end
+function Contact.chat(contact, text, opts)
+  local c = Contact.get(contact)
+  local pane_id, was_created = Contact.ensure_pane_bound(c)
+
+  local submit_key = "Enter"
+  if opts and opts.submit then
+    submit_key = opts.submit
   end
-  return true, nil
-end
-
-function M.validate_config(config)
-  if type(config) ~= "table" then
-    error("config must be a table, got " .. type(config))
-  end
-
-  if type(config.name) ~= "string" or #config.name == 0 then
-    error("config.name must be a non-empty string")
-  end
-
-  validate_create(config.create)
-end
-
-function M.chat(contact, text)
-  local c = get_contact_table(contact)
-  local pane_id, was_created = ensure_pane_bound(c)
 
   local send = function()
-    local ok, err = send_texts(pane_id, text)
+    local items = type(text) == "table" and text or { text }
+    for _, item in ipairs(items) do
+      local ok, err = tmux.send_text(pane_id, item)
+      if not ok then
+        error("Failed to send text: " .. err)
+      end
+    end
+
+    local ok, err = tmux.send_keys(pane_id, submit_key)
     if not ok then
-      error("Failed to send text: " .. err)
+      error("Failed to send submit key: " .. err)
     end
 
     state.set_last_contact(c)
-    return true
   end
 
   if was_created then
     vim.defer_fn(send, 150)
-    return true
   else
-    return send()
+    send()
   end
 end
 
-function M.send_command(contact, cmd)
-  -- local mode = vim.fn.mode()
-  -- if mode:match('V') then
-  --   local sline = vim.fn.line("'<")
-  --   local eline = vim.fn.line("'>")
-  --   local lines = vim.api.nvim_buf_get_text(0, sline - 1, 0, eline - 1, 999, {})
-  --   local selection = table.concat(lines, "\n")
-  --   if not selection or selection == '' then
-  --     error("No visual selection available")
-  --   end
-  --   cmd = selection .. (cmd or '')
-  -- elseif cmd == nil then
-  --   cmd = ''
-  -- end
-  if cmd == nil then
-    cmd = ''
-  end
-
-  local c = get_contact_table(contact)
-  local pane_id, was_created = ensure_pane_bound(c)
+function Contact.send_keys(contact, keys)
+  local c = Contact.get(contact)
+  local pane_id, was_created = Contact.ensure_pane_bound(c)
 
   local send = function()
-    local items = type(cmd) == "table" and cmd or { cmd }
-    for _, item in ipairs(items) do
-      local ok, err = tmux.send_text(pane_id, item)
-      if not ok then
-        error("Failed to send command: " .. err)
-      end
-    end
-
-    local ok, err = tmux.send_enter(pane_id)
+    local ok, err = tmux.send_keys(pane_id, keys)
     if not ok then
-      error("Failed to send Enter: " .. err)
+      error("Failed to send keys: " .. err)
     end
-
     state.set_last_contact(c)
-    return true
   end
 
   if was_created then
-    vim.defer_fn(send, 250)
-    return true
+    vim.defer_fn(send, 150)
   else
-    return send()
+    send()
   end
 end
 
-function M.clear_contact(contact)
-  local c = get_contact_table(contact)
+function Contact.clear(contact)
+  local c = Contact.get(contact)
   if not c.pane_id then
-    return true
+    return
   end
 
   local ok, err = tmux.clear_history(c.pane_id)
   if not ok then
     error("Failed to clear history: " .. err)
   end
-
-  return true
 end
 
-function M.breakup(contact)
-  local c = get_contact_table(contact)
+function Contact.breakup(contact)
+  local c = Contact.get(contact)
   if c.pane_id then
     local ok, err = tmux.kill_pane(c.pane_id)
     if ok then
@@ -241,45 +225,9 @@ function M.breakup(contact)
       if not err:find("no such pane") then
         error("Failed to kill pane: " .. err)
       end
+      c.pane_id = nil
     end
   end
-
-  return true
 end
 
-function M.run_command(contact, tmux_cmd)
-  local c = get_contact_table(contact)
-  local pane_id = ensure_pane_bound(c)
-
-  local ok, err = tmux.execute_tmux_command(tmux_cmd, pane_id)
-  if not ok then
-    error("Failed to execute tmux command: " .. err)
-  end
-
-  state.set_last_contact(c)
-  return true
-end
-
-function M.create_contact(config)
-  M.validate_config(config)
-
-  local contact = {
-    name = config.name,
-    create = config.create,
-    pane_id = nil,
-    match_command = nil,
-    breakup_on_exit = config_defaults.breakup_on_exit,
-  }
-
-  if config.match_command ~= nil then
-    contact.match_command = config.match_command
-  end
-
-  if config.breakup_on_exit ~= nil then
-    contact.breakup_on_exit = config.breakup_on_exit
-  end
-
-  return setmetatable(contact, { __index = M })
-end
-
-return M
+return Contact

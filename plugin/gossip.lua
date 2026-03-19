@@ -1,17 +1,16 @@
-vim.api.nvim_create_autocmd("VimLeavePre", {
-  pattern = "*",
-  callback = function()
-    local state = require("gossip.state")
-    local tmux = require("gossip.tmux")
+local gossip = require('gossip')
 
-    local all_contacts = state.get_all_contacts()
-    for name, contact in pairs(all_contacts) do
+vim.api.nvim_create_autocmd('VimLeave', {
+  callback = function()
+    local contacts = gossip.get_all_contacts()
+    for _, contact in pairs(contacts) do
       if contact.breakup_on_exit and contact.pane_id then
-        local ok, err = tmux.kill_pane(contact.pane_id)
-        if not ok and not err:find("no such pane") then
-          error("Failed to kill pane: " .. err)
-        end
+        local ok, _ = pcall(function()
+          gossip.breakup(contact.name)
+        end)
       end
     end
-  end,
+  end
 })
+
+return gossip
