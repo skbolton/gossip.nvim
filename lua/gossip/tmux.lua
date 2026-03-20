@@ -95,7 +95,15 @@ function M.send_enter(pane_id)
 end
 
 function M.send_keys(pane_id, keys)
-  local _, err = execute_tmux_sync({ "tmux", "send-keys", "-t", pane_id, keys })
+  local args = { "tmux", "send-keys", "-t", pane_id }
+  if type(keys) == "table" then
+    for _, key in ipairs(keys) do
+      table.insert(args, key)
+    end
+  else
+    table.insert(args, keys)
+  end
+  local _, err = execute_tmux_sync(args)
   if err then
     return false, err
   end
