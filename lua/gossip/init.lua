@@ -48,8 +48,14 @@ function M.breakup(contact)
   Contact.breakup(contact)
 end
 
-function M.get_last_contact()
-  return state.get_last_contact()
+--- Zooms and focuses on a contact's tmux pane.
+-- This combines pane selection and zooming into a single action,
+-- switching focus to the contact's pane while expanding it to full-screen view.
+-- @param contact string|table Contact name or Contact object
+-- @usage
+--   gossip.zoom("bob")
+function M.zoom(contact)
+  Contact.zoom(contact)
 end
 
 function M.set_last_contact(contact)

@@ -191,5 +191,20 @@ function M.execute_tmux_command(cmd, pane_id)
   return execute_tmux_sync(args)
 end
 
-return M
+function M.validate_pane_exists(pane_id)
+  local _, err = execute_tmux_sync({ "tmux", "list-panes", "-t", pane_id })
+  if err then
+    return false, err
+  end
+  return true, nil
+end
 
+function M.zoom_pane(pane_id)
+  local _, err = execute_tmux_sync({ "tmux", "choose-client", "-t", pane_id, "-z" })
+  if err then
+    return false, err
+  end
+  return true, nil
+end
+
+return M

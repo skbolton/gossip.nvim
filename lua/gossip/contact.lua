@@ -245,4 +245,30 @@ function Contact.breakup(contact)
   end
 end
 
+--- Zooms and focuses on a contact's tmux pane.
+-- Uses tmux choose-client -t $PANE_ID -z to both switch focus and zoom
+-- the target pane in a single action.
+-- @param contact string|table Contact name or Contact object
+-- @usage
+--   Contact.zoom("bob")
+function Contact.zoom(contact)
+  local c = Contact.get(contact)
+
+  if not c.pane_id then
+    error("Contact has no pane: " .. c.name)
+  end
+
+  local pane_valid = tmux.validate_pane_exists(c.pane_id)
+  if not pane_valid then
+    error("Pane does not exist: " .. c.pane_id)
+  end
+
+  local ok, zoom_err = tmux.zoom_pane(c.pane_id)
+  if not ok then
+    error("Failed to zoom pane: " .. zoom_err)
+  end
+
+  state.set_last_contact(c)
+end
+
 return Contact
