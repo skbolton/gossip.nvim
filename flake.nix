@@ -8,7 +8,7 @@
   };
 
   outputs =
-    { self, nixpkgs, openspec }:
+    { nixpkgs, openspec, ... }:
     let
       supportedSystems = [
         "x86_64-linux"
@@ -29,14 +29,8 @@
           default = pkgs.mkShell {
             buildInputs = [
               openspec.packages.${system}.default
+              pkgs.stylua
             ];
-
-            shellHook = ''
-              echo "Gossip development environment"
-              echo "Node version: $(node --version)"
-              echo "pnpm version: $(pnpm --version)"
-              echo "OpenSpec version: $(openspec --version)"
-            '';
           };
         }
       );

@@ -1,5 +1,5 @@
-local Contact = require("gossip.contact")
-local state = require("gossip.state")
+local Contact = require('gossip.contact')
+local state = require('gossip.state')
 
 local M = {}
 
@@ -58,23 +58,30 @@ function M.zoom(contact)
   Contact.zoom(contact)
 end
 
+function M.get_last_contact()
+  return state.get_last_contact()
+end
+
 function M.set_last_contact(contact)
   state.set_last_contact(contact)
 end
 
 function M.selection()
   local mode = vim.fn.mode()
-  if not mode:find("v") then
+  if not (mode:find('v') or mode:find('V')) then
     return {}
   end
 
-  local start_pos = vim.fn.getpos("'<")
-  local end_pos = vim.fn.getpos("'>")
+  vim.cmd("'<,'>yank")
+  local selection = vim.fn.getreg('"')
+  if not selection or selection == '' then
+    return {}
+  end
 
-  local start_line = start_pos[2]
-  local end_line = end_pos[2]
-
-  local lines = vim.api.nvim_buf_get_text(0, start_line - 1, 0, end_line - 1, 0, {})
+  local lines = {}
+  for line in selection:gmatch('[^\r\n]+') do
+    table.insert(lines, line)
+  end
   return lines
 end
 
