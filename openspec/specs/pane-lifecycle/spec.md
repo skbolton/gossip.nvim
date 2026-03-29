@@ -12,7 +12,7 @@ The system SHALL find existing tmux panes by exact command match.
 #### Scenario: Find pane by command
 - **WHEN** tmux has a pane running "opencode"
 - **AND** user has a contact with `match_command = "opencode"` and no bound pane
-- **AND** user calls `gossip.chat("ai", "hello")`
+- **AND** user calls `gossip.send("ai", {"hello", "Enter"})`
 - **THEN** the system searches all tmux panes
 - **AND** finds the pane where pane_current_command equals "opencode"
 - **AND** binds the contact to that pane ID
@@ -21,7 +21,7 @@ The system SHALL find existing tmux panes by exact command match.
 #### Scenario: No matching pane creates new
 - **WHEN** user has a contact with `match_command = "opencode"` and no bound pane
 - **AND** no pane exists running "opencode"
-- **AND** user calls `gossip.chat("ai", "hello")`
+- **AND** user calls `gossip.send("ai", {"hello", "Enter"})`
 - **THEN** a new pane is created using the create config
 - **AND** the contact is bound to the new pane
 

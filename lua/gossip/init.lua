@@ -20,12 +20,19 @@ function M.get_all_contacts()
   return state.get_all_contacts()
 end
 
-function M.chat(contact, text, opts)
-  Contact.chat(contact, text, opts)
-end
-
-function M.send_keys(contact, keys)
-  Contact.send_keys(contact, keys)
+--- Sends keys to a contact's tmux pane.
+-- Each string in the table is passed to tmux's send-keys command as a separate
+-- argument, meaning tmux evaluates them individually. For example, {"hello", "Enter"}
+-- sends "hello" then presses Enter, whereas "hello Enter" treats the entire string
+-- as a single literal that tmux would type literally.
+-- @param contact string|table Contact name or Contact object
+-- @param keys string|table Keys to send (single string or table of keys)
+-- @usage
+--   gossip.send("bob", "hello")
+--   gossip.send("bob", {"hello", "Enter"})
+--   gossip.send("bob", {"hello", "C-y"})  -- Ctrl+Y instead of Enter
+function M.send(contact, keys)
+  Contact.send(contact, keys)
 end
 
 function M.breakup(contact)

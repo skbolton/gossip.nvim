@@ -151,48 +151,38 @@ function Contact.get(contact)
   end
 end
 
-function Contact.chat(contact, text, opts)
+--- Sends keys to a contact's tmux pane.
+-- Each string in the table is passed to tmux's send-keys command as a separate
+-- argument, meaning tmux evaluates them individually. For example, {"hello", "Enter"}
+-- sends "hello" then presses Enter, whereas "hello Enter" treats the entire string
+-- as a single literal that tmux would type literally.
+-- @param contact string|table Contact name or Contact object
+-- @param keys string|table Keys to send (single string or table of keys)
+-- @usage
+--   Contact.send("bob", "hello")
+--   Contact.send("bob", {"hello", "Enter"})
+--   Contact.send("bob", {"hello", "C-y"})  -- Ctrl+Y instead of Enter
+function Contact.send(contact, keys)
   local c = Contact.get(contact)
   local pane_id, was_created = Contact.ensure_pane_bound(c)
 
-  local submit_key = "Enter"
-  if opts and opts.submit then
-    submit_key = opts.submit
-  end
-
   local send = function()
-    local items = type(text) == "table" and text or { text }
-    for _, item in ipairs(items) do
-      local ok, err = tmux.send_text(pane_id, item)
+    if type(keys) == "string" then
+      local ok, err = tmux.send_keys(pane_id, keys)
       if not ok then
-        error("Failed to send text: " .. err)
+        error("Failed to send keys: " .. err)
       end
+    elseif type(keys) == "table" then
+      for _, key in ipairs(keys) do
+        local ok, err = tmux.send_keys(pane_id, key)
+        if not ok then
+          error("Failed to send keys: " .. err)
+        end
+      end
+    else
+      error("keys must be a string or table")
     end
 
-    local ok, err = tmux.send_keys(pane_id, submit_key)
-    if not ok then
-      error("Failed to send submit key: " .. err)
-    end
-
-    state.set_last_contact(c)
-  end
-
-  if was_created then
-    vim.defer_fn(send, 150)
-  else
-    send()
-  end
-end
-
-function Contact.send_keys(contact, keys)
-  local c = Contact.get(contact)
-  local pane_id, was_created = Contact.ensure_pane_bound(c)
-
-  local send = function()
-    local ok, err = tmux.send_keys(pane_id, keys)
-    if not ok then
-      error("Failed to send keys: " .. err)
-    end
     state.set_last_contact(c)
   end
 
