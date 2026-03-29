@@ -35,6 +35,15 @@ function M.send(contact, keys)
   Contact.send(contact, keys)
 end
 
+--- Sends C-c (SIGINT) to a contact's tmux pane.
+-- This interrupts the process running in the contact's pane.
+-- @param contact string|table Contact name or Contact object
+-- @usage
+--   gossip.interrupt("bob")
+function M.interrupt(contact)
+  Contact.interrupt(contact)
+end
+
 function M.breakup(contact)
   Contact.breakup(contact)
 end
