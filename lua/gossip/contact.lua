@@ -207,27 +207,23 @@ end
 
 --- Sends C-c (SIGINT) to a contact's tmux pane.
 -- This interrupts the process running in the contact's pane.
+-- If the contact has no pane, this is a no-op (idempotent).
 -- @param contact string|table Contact name or Contact object
 -- @usage
 --   Contact.interrupt("bob")
 function Contact.interrupt(contact)
   local c = Contact.get(contact)
-  local pane_id, was_created = Contact.ensure_pane_bound(c)
 
-  local send_interrupt = function()
-    local ok, err = tmux.send_keys(pane_id, 'C-c')
-    if not ok then
-      error('Failed to send interrupt: ' .. err)
-    end
-
-    state.set_last_contact(c)
+  if not c.pane_id then
+    return
   end
 
-  if was_created then
-    vim.defer_fn(send_interrupt, 150)
-  else
-    send_interrupt()
+  local ok, err = tmux.send_keys(c.pane_id, 'C-c')
+  if not ok then
+    error('Failed to send interrupt: ' .. err)
   end
+
+  state.set_last_contact(c)
 end
 
 function Contact.breakup(contact)

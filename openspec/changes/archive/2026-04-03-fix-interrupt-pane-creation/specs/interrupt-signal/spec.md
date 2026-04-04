@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Interrupt contact
 The system SHALL provide an `interrupt` function that sends a C-c (SIGINT) character to a contact when called. The interrupt function MUST NOT create a new pane if one does not exist for the contact. If no pane exists for the contact, the function MUST return success without sending any keys (idempotent behavior).
