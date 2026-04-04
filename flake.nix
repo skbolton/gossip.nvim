@@ -1,5 +1,5 @@
 {
-  description = "Development environment for gossip with OpenSpec";
+  description = "Neovim plugin for managing tmux pane";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -8,7 +8,7 @@
   };
 
   outputs =
-    { nixpkgs, openspec, ... }:
+    { nixpkgs, openspec, self }:
     let
       supportedSystems = [
         "x86_64-linux"
@@ -20,6 +20,20 @@
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
     in
     {
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          gossip = pkgs.vimUtils.buildVimPlugin {
+            pname = "gossip";
+            version = "0.0.1";
+            src = self;
+          };
+        }
+      );
+
       devShells = forAllSystems (
         system:
         let
