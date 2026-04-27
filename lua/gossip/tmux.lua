@@ -131,6 +131,7 @@ function M.build_create_command(create)
 
   if type(create) == 'string' then
     table.insert(cmd_parts, 'split-window')
+    table.insert(cmd_parts, '-d')
     local parts = {}
     for part in create:gmatch('%S+') do
       table.insert(parts, part)
@@ -147,6 +148,7 @@ function M.build_create_command(create)
     local key = keys[1]
     if key == 'split' then
       table.insert(cmd_parts, 'split-window')
+      table.insert(cmd_parts, '-d')
       local s = create.split
       if s.dir then
         table.insert(cmd_parts, '-' .. s.dir)
@@ -160,6 +162,7 @@ function M.build_create_command(create)
       end
     elseif key == 'window' then
       table.insert(cmd_parts, 'new-window')
+      table.insert(cmd_parts, '-d')
       local w = create.window
       if w.name then
         table.insert(cmd_parts, '-n')
